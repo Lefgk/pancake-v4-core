@@ -19,6 +19,8 @@ library TickBitmap {
         //   compressed = tick / tickSpacing;
         //   if (tick < 0 && tick % tickSpacing != 0) compressed--;
         assembly ("memory-safe") {
+            tick := signextend(2, tick)
+            tickSpacing := signextend(2, tickSpacing)
             compressed :=
                 sub(
                     sdiv(tick, tickSpacing),
@@ -35,7 +37,7 @@ library TickBitmap {
     function position(int24 tick) internal pure returns (int16 wordPos, uint8 bitPos) {
         assembly ("memory-safe") {
             // signed arithmetic shift right
-            wordPos := sar(8, tick) //
+            wordPos := sar(8, signextend(2, tick)) //
             bitPos := and(tick, 0xff)
         }
     }
@@ -51,6 +53,8 @@ library TickBitmap {
         //   uint256 mask = 1 << bitPos;
         //   self[wordPos] ^= mask;
         assembly ("memory-safe") {
+            tick := signextend(2, tick)
+            tickSpacing := signextend(2, tickSpacing)
             // ensure that the tick is spaced
             if smod(tick, tickSpacing) {
                 let fmp := mload(0x40)
@@ -92,7 +96,9 @@ library TickBitmap {
             if (lte) {
                 (int16 wordPos, uint8 bitPos) = position(compressed);
                 // all the 1s at or to the right of the current bitPos
-                uint256 mask = (1 << bitPos) - 1 + (1 << bitPos);
+                // uint256 mask = (1 << bitPos) - 1 + (1 << bitPos);
+                uint256 mask = type(uint256).max >> (uint256(type(uint8).max) - bitPos);
+
                 uint256 masked = self[wordPos] & mask;
 
                 // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
